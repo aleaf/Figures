@@ -2,6 +2,12 @@ __author__ = 'aleaf'
 
 import matplotlib as mpl
 import textwrap
+try:
+    import seaborn as sb
+    seaborn = True
+except:
+    seaborn = False
+
 
 class ReportFigures(object):
 
@@ -127,7 +133,30 @@ class ReportFigures(object):
         except:
             pass
 
-    def set_style(self, width='double', height='default'):
+    def set_style(self, style='default', width='double', height='default'):
+        """
+        Set dimmensions of figures to standard report sizes
+
+        Not quite sure yet about the cleanest way to implement multiple customizations of the base settings (styles)
+        Seaborn's methodology is somewhat complicated, but may be the way to go for multiple figure styles
+        (and it also provides the option of viewing the current style settings with the axes_style() command)
+
+
+        Parameters
+        ----------
+        width : string
+            Sets the figure width to single or double column
+            'double' (default) or 'single'
+        height : string
+            Sets the aspect of the plot to the Matplotlib default (6:8), or a tall aspect (7:8)
+            'default' (default) or 'tall'
+        """
+
+
+        if style == 'timeseries':
+            self.plotstyle['grid.linewidth'] = 0
+            if width == 'single':
+                self.plotstyle['xtick.minor.size'] = 0
 
         if width == 'single' and height != 'tall':
             self.plotstyle['figure.figsize'] = self.singlecolumn_size
@@ -141,7 +170,7 @@ class ReportFigures(object):
         else:
             pass
 
-
+        mpl.rcParams.update(self.plotstyle)
 
         """Set the aesthetic style of the plots.
 
@@ -171,4 +200,3 @@ class ReportFigures(object):
         set_palette : set the default color palette for figures
 
         """
-        mpl.rcParams.update(self.plotstyle)
