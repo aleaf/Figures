@@ -36,6 +36,7 @@ class ReportFigures(object):
                  'axes.linewidth': 0.5,
                  'axes.labelsize': 8,
                  'axes.titlesize': 9,
+                 'axes.grid': False,
                  "grid.linewidth": 0.5,
                  'xtick.major.width': 0.5,
                  'ytick.major.width': 0.5,
@@ -50,6 +51,7 @@ class ReportFigures(object):
                  'axes.edgecolor' : 'k',
                  'figure.figsize': doublecolumn_size}
 
+    ymin0 = False
 
     def __init__(self):
 
@@ -70,7 +72,7 @@ class ReportFigures(object):
         ax.set_title(title.capitalize(), family='Univers 67 Condensed', zorder=zorder, loc='left')
 
 
-    def axes_numbering(self, ax):
+    def axes_numbering(self, ax, y=True, x=False, enforce_integers=False):
         '''
         Implement these requirements from USGS standards, p 16
         * Use commas in numbers greater than 999
@@ -83,13 +85,16 @@ class ReportFigures(object):
         if self.ymin0 and ax.get_ylim()[0] < 0:
             ax.set_ylim(0, ax.get_ylim()[1])
 
+        if enforce_integers:
+            ax.get_yaxis().set_major_locator(mpl.ticker.MaxNLocator(integer=True))
+            return
 
         # so clunky, but this appears to be the only way to do it
-        if -10 > ax.get_ylim()[0] or ax.get_ylim()[1] > 10:
+        if enforce_integers or -10 > ax.get_ylim()[0] or ax.get_ylim()[1] > 10:
             fmt = '{:,.0f}'
-        elif -10 <= ax.get_ylim()[0] < -1 or 1 < ax.get_ylim()[1] <= 10:
+        elif -10 <= ax.get_ylim()[0] <= -1 or 1 <= ax.get_ylim()[1] <= 10:
             fmt = '{:,.1f}'
-        elif -1 <= ax.get_ylim()[0] < -.1 or .1 < ax.get_ylim()[1] <= 1:
+        elif -1 < ax.get_ylim()[0] < -.1 or .1 < ax.get_ylim()[1] < 1:
             fmt = '{:,.2f}'
         else:
             fmt = '{:,.2e}'
