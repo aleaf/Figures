@@ -36,6 +36,8 @@ class ReportFigures(object):
     title_size = 9
     legend_font = 'Univers 67 Condensed',
     legend_titlesize = 8
+    
+    ymin0=False
 
     # rcParams
     plotstyle = {'font.family': default_font,
@@ -62,9 +64,11 @@ class ReportFigures(object):
         pass
 
 
-    def figure_title(self, ax, title, zorder=200, wrap=50):
+    def figure_title(self, ax, title, zorder=200, wrap=50, capitalize=True):
         wrap = wrap
         title = "\n".join(textwrap.wrap(title, wrap)) #wrap title
+        if capitalize:
+            title = title.capitalize()
         '''
         ax.text(.025, 1.025, title,
                 horizontalalignment='left',
@@ -73,10 +77,10 @@ class ReportFigures(object):
         '''
         # with Univers 47 Condensed as the font.family, changing the weight to 'bold' doesn't work
         # manually specify a different family for the title
-        ax.set_title(title.capitalize(), family='Univers 67 Condensed', zorder=zorder, loc='left')
+        ax.set_title(title, family='Univers 67 Condensed', zorder=zorder, loc='left')
 
 
-    def axes_numbering(self, ax):
+    def axes_numbering(self, ax, format_x=False):
         '''
         Implement these requirements from USGS standards, p 16
         * Use commas in numbers greater than 999
@@ -91,21 +95,28 @@ class ReportFigures(object):
 
 
         # so clunky, but this appears to be the only way to do it
-        if -10 > ax.get_ylim()[0] or ax.get_ylim()[1] > 10:
-            fmt = '{:,.0f}'
-        elif -10 <= ax.get_ylim()[0] < -1 or 1 < ax.get_ylim()[1] <= 10:
-            fmt = '{:,.1f}'
-        elif -1 <= ax.get_ylim()[0] < -.1 or .1 < ax.get_ylim()[1] <= 1:
-            fmt = '{:,.2f}'
-        else:
-            fmt = '{:,.2e}'
+        def number_formatting(axis_limits):
+            if -10 > axis_limits[0] or axis_limits[1] > 10:
+                fmt = '{:,.0f}'
+            elif -10 <= axis_limits[0] < -1 or 1 < axis_limits[1] <= 10:
+                fmt = '{:,.1f}'
+            elif -1 <= axis_limits[0] < -.1 or .1 < axis_limits[1] <= 1:
+                fmt = '{:,.2f}'
+            else:
+                fmt = '{:,.2e}'
+                
+            def format_axis(y, pos):
+                y = fmt.format(y)
+                return y
+            return format_axis
 
-        def format_axis(y, pos):
-            y = fmt.format(y)
-            return y
-
+        format_axis = number_formatting(ax.get_ylim()) 
         ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
 
+        if format_x:
+            format_axis = number_formatting(ax.get_xlim()) 
+            ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
+            
         # correct for edge cases of upper ylim == 1, 10
         # and fix zero to have no decimal places
         def fix_decimal(ticks):
