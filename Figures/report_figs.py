@@ -2,12 +2,13 @@ __author__ = 'aleaf'
 
 import matplotlib as mpl
 import textwrap
+'''
 try:
     import seaborn as sb
     seaborn = True
 except:
     seaborn = False
-
+'''
 
 class ReportFigures(object):
 
@@ -36,6 +37,8 @@ class ReportFigures(object):
     title_size = 9
     legend_font = 'Univers 67 Condensed',
     legend_titlesize = 8
+    basemap_credits_font = 'Univers 47 Condensed Light'
+    basemap_credits_fontsize = 7
     
     ymin0=False
 
@@ -44,7 +47,6 @@ class ReportFigures(object):
                  'axes.linewidth': 0.5,
                  'axes.labelsize': 8,
                  'axes.titlesize': 9,
-                 'axes.grid': False,
                  "grid.linewidth": 0.5,
                  'xtick.major.width': 0.5,
                  'ytick.major.width': 0.5,
@@ -82,7 +84,7 @@ class ReportFigures(object):
         ax.set_title(title, family='Univers 67 Condensed', zorder=zorder, loc='left')
 
 
-    def axes_numbering(self, ax, format_x=False):
+    def axes_numbering(self, ax, format_x=False, enforce_integers=False):
         '''
         Implement these requirements from USGS standards, p 16
         * Use commas in numbers greater than 999
@@ -95,13 +97,9 @@ class ReportFigures(object):
         if self.ymin0 and ax.get_ylim()[0] < 0:
             ax.set_ylim(0, ax.get_ylim()[1])
 
-        if enforce_integers:
-            ax.get_yaxis().set_major_locator(mpl.ticker.MaxNLocator(integer=True))
-            return
-
         # so clunky, but this appears to be the only way to do it
-        def number_formatting(axis_limits):
-            if -10 > axis_limits[0] or axis_limits[1] > 10:
+        def number_formatting(axis_limits, enforce_integers):
+            if -10 > axis_limits[0] or axis_limits[1] > 10 or enforce_integers:
                 fmt = '{:,.0f}'
             elif -10 <= axis_limits[0] < -1 or 1 < axis_limits[1] <= 10:
                 fmt = '{:,.1f}'
@@ -115,12 +113,17 @@ class ReportFigures(object):
                 return y
             return format_axis
 
-        format_axis = number_formatting(ax.get_ylim()) 
+        format_axis = number_formatting(ax.get_ylim(), enforce_integers) 
         ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
 
         if format_x:
-            format_axis = number_formatting(ax.get_xlim()) 
+            format_axis = number_formatting(ax.get_xlim(), enforce_integers) 
             ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
+        
+        if enforce_integers:
+            ax.get_yaxis().set_major_locator(mpl.ticker.MaxNLocator(integer=True))
+            if format_x:
+                ax.get_xaxis().set_major_locator(mpl.ticker.MaxNLocator(integer=True))
             
         # correct for edge cases of upper ylim == 1, 10
         # and fix zero to have no decimal places
@@ -148,6 +151,13 @@ class ReportFigures(object):
             ax.set_yticklabels(newylabels)
         except:
             pass
+
+    def basemap_credits(self, ax, text, wrap=50, y_offset=-0.01):
+        """Add basemap credits per the Illustration Standards Guide p27
+        """
+        text = "\n".join(textwrap.wrap(text, wrap)) #wrap title
+        ax.text(0.0, y_offset, text, family=self.basemap_credits_font, fontsize=self.basemap_credits_fontsize,
+                transform=ax.transAxes, ha='left', va='top')
 
     def set_style(self, style='default', width='double', height='default'):
         """
