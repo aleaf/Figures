@@ -1,6 +1,7 @@
 __author__ = 'aleaf'
 
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import textwrap
 '''
 try:
@@ -35,8 +36,9 @@ class ReportFigures(object):
     default_font = 'Univers 57 Condensed'
     title_font = 'Univers 67 Condensed'
     title_size = 9
-    legend_font = 'Univers 67 Condensed',
-    legend_titlesize = 8
+    legend_font = 'Univers 67 Condensed'
+    legend_titlesize = 9
+    legend_headingsize = 8
     basemap_credits_font = 'Univers 47 Condensed Light'
     basemap_credits_fontsize = 7
     
@@ -44,8 +46,9 @@ class ReportFigures(object):
 
     # rcParams
     plotstyle = {'font.family': default_font,
+                 'font.size' : 8.0,
                  'axes.linewidth': 0.5,
-                 'axes.labelsize': 8,
+                 'axes.labelsize': 9,
                  'axes.titlesize': 9,
                  "grid.linewidth": 0.5,
                  'xtick.major.width': 0.5,
@@ -67,8 +70,16 @@ class ReportFigures(object):
 
         pass
 
+    def figure_title(self, ax, title, zorder=200, wrap=50,
+                     subplot_prefix='',
+                     capitalize=True):
 
-    def figure_title(self, ax, title, zorder=200, wrap=50, capitalize=True):
+        # save the defaults before setting
+        old_fontset = mpl.rcParams['mathtext.fontset']
+        old_mathtextit = mpl.rcParams['mathtext.it']
+        mpl.rcParams['mathtext.fontset'] = 'custom'
+        mpl.rcParams['mathtext.it'] = 'Univers 67 Condensed:italic'
+
         wrap = wrap
         title = "\n".join(textwrap.wrap(title, wrap)) #wrap title
         if capitalize:
@@ -79,10 +90,44 @@ class ReportFigures(object):
                 verticalalignment='bottom',
                 transform=ax.transAxes, zorder=zorder)
         '''
+        if len(subplot_prefix) > 0:
+            title = '$\it{}$ '.format(subplot_prefix) + title
         # with Univers 47 Condensed as the font.family, changing the weight to 'bold' doesn't work
         # manually specify a different family for the title
-        ax.set_title(title, family='Univers 67 Condensed', zorder=zorder, loc='left')
+        ax.set_title(title, family=self.title_font, zorder=zorder, loc='left')
 
+        # reinstate existing rcParams
+        mpl.rcParams['mathtext.fontset'] = old_fontset
+        mpl.rcParams['mathtext.it'] = old_mathtextit
+
+    def legend(self, ax, handles, labels, **kwargs):
+        '''Make a legend, following guidelines in USGS Illustration Standards, p. 14
+
+        ax : matplotlib.pyplot axis object
+        handles : list
+            matplotlib.pyplot handles for each plot
+        labels : list
+            labels for each plot
+        kwargs : dict
+            keyword arguments to matplotlib.pyplot.legend()
+        '''
+
+        lgkwargs = {'title': 'EXPLANATION',
+                    'fontsize': self.legend_headingsize,
+                    'frameon': False,
+                    'loc': 8,
+                    'bbox_to_anchor': (0.5, -0.25)}
+        lgkwargs.update(kwargs)
+
+        mpl.rcParams['font.family'] = self.title_font
+
+
+        lg = ax.legend(handles, labels, **lgkwargs)
+
+        plt.setp(lg.get_title(), fontsize=self.legend_titlesize)
+        #reset rcParams back to default
+        mpl.rcParams['font.family'] = self.default_font
+        return lg
 
     def axes_numbering(self, ax, format_x=False, enforce_integers=False):
         '''
