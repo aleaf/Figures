@@ -217,7 +217,8 @@ class ReportFigures(object):
     def basemap_credits(self, ax, text, wrap=50, y_offset=-0.01):
         """Add basemap credits per the Illustration Standards Guide p27
         """
-        text = "\n".join(textwrap.wrap(text, wrap)) #wrap title
+        if wrap is not None:
+            text = "\n".join(textwrap.wrap(text, wrap)) #wrap title
         ax.text(0.0, y_offset, text, family=self.basemap_credits_font, fontsize=self.basemap_credits_fontsize,
                 transform=ax.transAxes, ha='left', va='top')
 
