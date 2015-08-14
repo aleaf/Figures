@@ -921,43 +921,34 @@ class Normalized_cmap:
         """Computes start, midpoint, and end values (between 0 and 1), to make
         a colormap using shiftedColorMap(), which will be
         * centered on zero
-        * if the midpoint is > 0.5, start = 0, end is < 1
-        * if the midpoint is < 0.5, the start is between 0 and 0.5, end = 1.
-
-        Could not get this to produce a consistent midpoint color with the shiftedColorMap fn
-        Using 0 and 1 for the start, stop produces a consistent midpoint color, at the cost of
-        having outliers with same color intensity, regardless of their magnitudes
         """
+        
         if self.vmin is None:
             self.vmin = np.min(self.values)
         if self.vmax is None:
             self.vmax = np.max(self.values)
 
-        # compute midpoint; handle cases where entire range is neg. or pos.
-        if self.vmin > 0:
-            self.midpoint = 0.0
-        elif self.vmax < 0:
-            self.midpoint = 1.0
-        elif self.vmin == 0 and self.vmax == 0:
-            self.midpoint = 0.5
-        else:
-            self.midpoint = 1 - self.vmax/(self.vmax + abs(self.vmin))
+        self._compute_midpoint()
 
-        # adjust upper and lower bounds to reflect relative distance from zero
-        # (doesn't work at the moment)
-        if self.midpoint > 0.5:
-            #self.start, self.stop = 0, 0.5 + (1-self.midpoint)
-            self.start = 0.0
-            self.stop = 0.5 + 0.5 * (1 - self.midpoint)/self.midpoint
-        elif self.midpoint < 0.5:
-            #self.start, self.stop = 0.5 - self.midpoint, 1
-            self.start = 0.5 - 0.5 * self.midpoint/(1 - self.midpoint)
-            self.stop = 1.0
-        else:
-            self.start, self.stop = 0.0, 1.0
+    def _compute_midpoint(self):
 
-        # must be floats, otherwise bad results!
-        self.start, self.stop, self.midpoint = float(self.start), float(self.stop), float(self.midpoint)
+        low, high = self.vmin, self.vmax
+        start, midpoint, stop = 0.0, 0.5, 1.0
+        if high > 0 and low >= 0:
+            midpoint = 0.5 + low / (2 * high)
+            start = midpoint - 0.0001
+        elif high <= 0 and low < 0:
+            midpoint = (low - high) / (2 * low)
+            stop = midpoint + 0.0001
+        elif abs(low) > high:
+            stop = (high-low) / (2 * abs(low))
+            midpoint = start + abs(low) / (2*abs(low))
+        elif abs(low) < high:
+            start = (high - abs(low)) / (2 * high)
+            midpoint = start + abs(low)/(2* high)
+        else:
+            pass
+        self.start, self.midpoint, self.stop = float(start), float(midpoint), float(stop)
 
     def shiftedColorMap(self, cmap, start=0.0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
         '''
