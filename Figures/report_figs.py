@@ -108,7 +108,7 @@ class ReportFigures(object):
                 transform=ax.transAxes, zorder=zorder)
         '''
         if len(subplot_prefix) > 0:
-            title = '$\it{}$ '.format(subplot_prefix) + title
+            title = '$\it{}$. '.format(subplot_prefix) + title
         # with Univers 47 Condensed as the font.family, changing the weight to 'bold' doesn't work
         # manually specify a different family for the title
         ax.set_title(title, family=self.title_font, zorder=zorder, loc='left')
@@ -222,7 +222,7 @@ class ReportFigures(object):
         ax.text(0.0, y_offset, text, family=self.basemap_credits_font, fontsize=self.basemap_credits_fontsize,
                 transform=ax.transAxes, ha='left', va='top')
 
-    def set_style(self, style='default', width='double', height='default'):
+    def set_style(self, mpl=mpl, style='default', width='double', height='default'):
         """
         Set dimmensions of figures to standard report sizes
 
@@ -322,7 +322,7 @@ class basemap:
 
     def __init__(self, extent, ax=None, proj4=None, epsg=None, datum='NAD27', projection_shapefile=None,
                  tick_interval=0.2,
-                 subplots=(1, 1), figsize='default', wspace=0.05, hspace=0.05,
+                 subplots=(1, 1), figsize='default', wspace=0.02, hspace=0.1,
                  parallels='default', meridians='default', parallels_kw={}, meridians_kw={},
                  **kwargs):
 
@@ -333,7 +333,7 @@ class basemap:
         if ax is None:
             # sharex and sharey arguments do not work with basemap!
             self.fig, self.axes = plt.subplots(*subplots, figsize=self.figsize)
-            plt.subplots_adjust(wspace=wspace, hspace=hspace)
+
         elif isinstance(ax, np.ndarray):
             self.axes = ax
             if len(np.shape(ax)) == 1:
@@ -405,6 +405,8 @@ class basemap:
             #if not subplots:
             #    add_scalebar(m, ax, scalebar_params, loc=scalebar_loc, color=scalebar_color, scalebar_pad=scalebar_pad)
             self.maps.append(m)
+
+        self.fig.subplots_adjust(wspace=wspace, hspace=hspace)
 
     def _convert_map_extent(self):
 
@@ -768,7 +770,8 @@ class basemap:
 
         self.layers[layername] = df
         self.patches[layername] = patches
-        self.patches_inds[layername] = inds
+        self.patches_inds[layername] = inds # index values (for patches created from multipolygons)
+        return patches, inds
 
     def add_shapefile(self, shp, index_field=None, axes=None,
                       s=20, fc='0.8', ec='k', lw=0.5, alpha=0.5,
@@ -824,11 +827,14 @@ class basemap:
         if cbar:
             self.fig.colorbar(collection, ax=axes, pad=0.03, label=cbar_label)
         '''
-    def plot_patches(self, layername, color_fields=None, df=None,
-                        fc='0.5', ec='k', lw=0.5, alpha=0.5, zorder=1,
-                        clim=(), cmap='jet', cbar=False, cbar_label=False, axes=None,
-                        cbar_kw={},
-                        **kwargs):
+    def plot_patches(self, layername=None, patches=None, patches_inds=None,
+                     color_fields=None, df=None,
+                     fc='0.5', ec='k', lw=0.5, alpha=0.5, zorder=1,
+                     clim=(), cmap='jet', normalize_cmap=False,
+                     cbar=False, cbar_label=False,
+                     axes=None,
+                     cbar_kw={},
+                     **kwargs):
 
         patches_cbar_kw = {'ax': self.axes.ravel().tolist(),
                            'fraction': 0.046,
@@ -843,18 +849,31 @@ class basemap:
         if not isinstance(color_fields, list):
             color_fields = [color_fields]
 
-        if df is None:
-            df = self.layers[layername]
+        # plot patches from the basemap instance
+        if layername is not None:
+            if df is None:
+                df = self.layers[layername]
 
-        patches = self.patches[layername]
-        inds = self.patches_inds[layername]
+            patches = self.patches[layername]
+            inds = self.patches_inds[layername]
+        # plot supplied patches (quicker for many basemap plots)
+        else:
+            patches = patches
+            inds = patches_inds
 
         if color_fields[0] is None:
             color_fields = [None] * np.size(self.axes)
-        elif len(clim) == 0:
+        elif len(clim) == 0 or clim == ('min', 'max'):
             clim = (df.min().min(), df.max().max())
+        elif clim[0] == 'min':
+            clim = (df.min().min(), clim[1])
+        elif clim[1] == 'max':
+            clim = (clim[0], df.max().max())
         else:
             pass
+
+        if normalize_cmap and color_fields[0] is not None:
+            cmap = Normalized_cmap(cmap, df[color_fields].values.ravel(), vmin=clim[0], vmax=clim[1]).cm
 
         for i, cf in enumerate(color_fields):
 
@@ -879,3 +898,116 @@ class basemap:
     def _set_shapefile_colors(self, df, column, inds):
 
         colors = [df[column][ind] for ind in inds]
+
+
+class Normalized_cmap:
+
+    def __init__(self, cmap, values, vmin=None, vmax=None):
+
+        self.values = values
+        self.vmin = float(vmin)
+        self.vmax = float(vmax)
+        if isinstance(cmap, str):
+            cmap = plt.cm.get_cmap(cmap)
+        self.cmap = cmap
+
+        self.normalize_cmap()
+        #self.start = 0
+        #self.stop = 1
+        self.cm = self.shiftedColorMap(self.cmap, self.start, self.midpoint, self.stop)
+        print self.start, self.midpoint, self.stop
+
+    def normalize_cmap(self):
+        """Computes start, midpoint, and end values (between 0 and 1), to make
+        a colormap using shiftedColorMap(), which will be
+        * centered on zero
+        * if the midpoint is > 0.5, start = 0, end is < 1
+        * if the midpoint is < 0.5, the start is between 0 and 0.5, end = 1.
+
+        Could not get this to produce a consistent midpoint color with the shiftedColorMap fn
+        Using 0 and 1 for the start, stop produces a consistent midpoint color, at the cost of
+        having outliers with same color intensity, regardless of their magnitudes
+        """
+        if self.vmin is None:
+            self.vmin = np.min(self.values)
+        if self.vmax is None:
+            self.vmax = np.max(self.values)
+
+        # compute midpoint; handle cases where entire range is neg. or pos.
+        if self.vmin > 0:
+            self.midpoint = 0.0
+        elif self.vmax < 0:
+            self.midpoint = 1.0
+        elif self.vmin == 0 and self.vmax == 0:
+            self.midpoint = 0.5
+        else:
+            self.midpoint = 1 - self.vmax/(self.vmax + abs(self.vmin))
+
+        # adjust upper and lower bounds to reflect relative distance from zero
+        # (doesn't work at the moment)
+        if self.midpoint > 0.5:
+            #self.start, self.stop = 0, 0.5 + (1-self.midpoint)
+            self.start = 0.0
+            self.stop = 0.5 + 0.5 * (1 - self.midpoint)/self.midpoint
+        elif self.midpoint < 0.5:
+            #self.start, self.stop = 0.5 - self.midpoint, 1
+            self.start = 0.5 - 0.5 * self.midpoint/(1 - self.midpoint)
+            self.stop = 1.0
+        else:
+            self.start, self.stop = 0.0, 1.0
+
+        # must be floats, otherwise bad results!
+        self.start, self.stop, self.midpoint = float(self.start), float(self.stop), float(self.midpoint)
+
+    def shiftedColorMap(self, cmap, start=0.0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
+        '''
+        Function to offset the "center" of a colormap. Useful for
+        data with a negative min and positive max and you want the
+        middle of the colormap's dynamic range to be at zero. From:
+        http://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
+
+        Input
+        -----
+          cmap : The matplotlib colormap to be altered
+          start : Offset from lowest point in the colormap's range.
+              Defaults to 0.0 (no lower ofset). Should be between
+              0.0 and `midpoint`.
+          midpoint : The new center of the colormap. Defaults to
+              0.5 (no shift). Should be between 0.0 and 1.0. In
+              general, this should be  1 - vmax/(vmax + abs(vmin))
+              For example if your data range from -15.0 to +5.0 and
+              you want the center of the colormap at 0.0, `midpoint`
+              should be set to  1 - 5/(5 + 15)) or 0.75
+          stop : Offset from highets point in the colormap's range.
+              Defaults to 1.0 (no upper ofset). Should be between
+              `midpoint` and 1.0.
+        '''
+
+        cdict = {
+            'red': [],
+            'green': [],
+            'blue': [],
+            'alpha': []
+        }
+
+        # regular index to compute the colors
+        reg_index = np.linspace(start, stop, 257)
+
+        # shifted index to match the data
+        shift_index = np.hstack([
+            np.linspace(0.0, midpoint, 128, endpoint=False),
+            np.linspace(midpoint, 1.0, 129, endpoint=True)
+        ])
+
+        for ri, si in zip(reg_index, shift_index):
+            r, g, b, a = cmap(ri)
+
+            cdict['red'].append((si, r, r))
+            cdict['green'].append((si, g, g))
+            cdict['blue'].append((si, b, b))
+            cdict['alpha'].append((si, a, a))
+
+        newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
+        plt.register_cmap(cmap=newcmap)
+
+        return newcmap
