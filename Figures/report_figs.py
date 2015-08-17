@@ -922,7 +922,7 @@ class Normalized_cmap:
         a colormap using shiftedColorMap(), which will be
         * centered on zero
         """
-        
+
         if self.vmin is None:
             self.vmin = np.min(self.values)
         if self.vmax is None:
