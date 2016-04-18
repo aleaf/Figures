@@ -63,7 +63,7 @@ def make_cmap(colors, position=None, bit=False, webcolors=False):
                 for i in range(len(colors)):
                     colors[i] = colorConverter.to_rgb(colors[i])
             except ValueError:
-                print "invalid html web color {}.".format(colors[i])
+                print("invalid html web color {}.".format(colors[i]))
     cdict = {'red':[], 'green':[], 'blue':[]}
     for pos, color in zip(position, colors):
         cdict['red'].append((pos, color[0], color[0]))
@@ -76,17 +76,17 @@ def make_cmap(colors, position=None, bit=False, webcolors=False):
 def discrete_colors(array, labels=None, colormap='jet', spccolors=None):
     
     if not labels:
-        labels = dict(zip(np.unique(array).astype(int), np.unique(array).astype(str)))
+        labels = dict(list(zip(np.unique(array).astype(int), np.unique(array).astype(str))))
 
     # respecify values/colors to improve contrast
     array = array.astype('float')
     categories = sorted(labels.keys()) # set categories from labels instead of raster, in case there are categories that shouldn't be plotted individually
     
-    newvalues = range(len(categories))
-    d = dict(zip(categories, newvalues))
+    newvalues = list(range(len(categories)))
+    d = dict(list(zip(categories, newvalues)))
     array_t = np.zeros(np.shape(array))
 
-    for k, v in d.iteritems(): array_t[array==k] = v
+    for k, v in d.items(): array_t[array==k] = v
     
     # update labels and categories list with new values
     for c in categories:
