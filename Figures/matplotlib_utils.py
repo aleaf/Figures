@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from matplotlib.colors import Normalize
 from matplotlib.colors import colorConverter
