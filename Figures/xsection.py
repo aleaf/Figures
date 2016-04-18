@@ -6,11 +6,11 @@ except ImportError:
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib_utils as mplu
+from . import matplotlib_utils as mplu
 from mpl_toolkits.axes_grid1 import ImageGrid
 import sys
 sys.path.append('../../../GitHub/Figures')
-from report_figs import ReportFigures
+from .report_figs import ReportFigures
 
 # set the style for USGS reports
 figures = ReportFigures()

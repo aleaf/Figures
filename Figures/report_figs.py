@@ -201,15 +201,15 @@ class ReportFigures(object):
             return ticks
 
         try:
-            [float(l._text.replace(u'\u2212', '-')) for l in ax.get_xticklabels()]
-            newxlabels = fix_decimal([fmt.format(float(l._text.replace(u'\u2212', '-'))) for l in ax.get_xticklabels()])
+            [float(l._text.replace('\u2212', '-')) for l in ax.get_xticklabels()]
+            newxlabels = fix_decimal([fmt.format(float(l._text.replace('\u2212', '-'))) for l in ax.get_xticklabels()])
             ax.set_xticklabels(newxlabels)
         except:
             pass
 
         try:
-            [float(l._text.replace(u'\u2212', '-')) for l in ax.get_yticklabels()]
-            newylabels = fix_decimal([fmt.format(float(l._text.replace(u'\u2212', '-'))) for l in ax.get_yticklabels()])
+            [float(l._text.replace('\u2212', '-')) for l in ax.get_yticklabels()]
+            newylabels = fix_decimal([fmt.format(float(l._text.replace('\u2212', '-'))) for l in ax.get_yticklabels()])
             ax.set_yticklabels(newylabels)
         except:
             pass
@@ -465,10 +465,10 @@ class basemap:
         # x and y are instances of drawmeridians and drawparallels objects in basemap
 
         # get the vertices of the lines where they intersect the axes by plumbing the dictionaries y, x, obtained above
-        ylpts = [y[lat][0][0].get_data()[1][np.argmin(abs(y[lat][0][0].get_data()[0] - 0))] for lat in y.keys()]
-        yrpts = [y[lat][0][0].get_data()[1][np.argmin(abs(y[lat][0][0].get_data()[0] - m.urcrnrx))] for lat in y.keys()]
-        xtpts = [x[lat][0][0].get_data()[0][np.argmin(abs(x[lat][0][0].get_data()[1] - 0))] for lat in x.keys()]
-        xbpts = [x[lat][0][0].get_data()[0][np.argmin(abs(x[lat][0][0].get_data()[1] - m.urcrnry))] for lat in x.keys()]
+        ylpts = [y[lat][0][0].get_data()[1][np.argmin(abs(y[lat][0][0].get_data()[0] - 0))] for lat in list(y.keys())]
+        yrpts = [y[lat][0][0].get_data()[1][np.argmin(abs(y[lat][0][0].get_data()[0] - m.urcrnrx))] for lat in list(y.keys())]
+        xtpts = [x[lat][0][0].get_data()[0][np.argmin(abs(x[lat][0][0].get_data()[1] - 0))] for lat in list(x.keys())]
+        xbpts = [x[lat][0][0].get_data()[0][np.argmin(abs(x[lat][0][0].get_data()[1] - m.urcrnry))] for lat in list(x.keys())]
 
         # now plot the ticks as a scatter
         m.scatter(len(ylpts)*[0], ylpts, 100, c='k', marker='_', linewidths=1, zorder=100)
@@ -486,10 +486,10 @@ class basemap:
         rows, cols = self.subplots
 
         # determine which subplots are on the outside of the grid
-        outside_left = range(nplots)[::cols]
-        outside_right = range(nplots)[cols-1::cols]
-        outside_top = range(nplots)[:cols]
-        outside_bottom = range(nplots)[-cols:]
+        outside_left = list(range(nplots))[::cols]
+        outside_right = list(range(nplots))[cols-1::cols]
+        outside_top = list(range(nplots))[:cols]
+        outside_bottom = list(range(nplots))[-cols:]
 
         sp_ticklabels = []
         for i in range(rows * cols):
@@ -660,10 +660,10 @@ class basemap:
             df['geometry'] = [g.simplify(simplify_patches) for g in df.geometry]
 
         if 'Polygon' in df.iloc[0].geometry.type:
-            print "building PatchCollection..."
+            print("building PatchCollection...")
             inds = []
             patches = []
-            for i, g in df.geometry.iteritems():
+            for i, g in df.geometry.items():
                 if g.type != 'MultiPolygon':
                     inds.append(i)
                     patches.append(PolygonPatch(g))
@@ -677,20 +677,20 @@ class basemap:
                                          )
 
         elif 'LineString' in df.geometry[0].type:
-            print "building LineCollection..."
+            print("building LineCollection...")
             inds = []
             lines = []
-            for i, g in df.geometry.iteritems():
+            for i, g in df.geometry.items():
                 if 'Multi' not in g.type:
                     x, y = g.xy
                     inds.append(i)
-                    lines.append(zip(x, y))
+                    lines.append(list(zip(x, y)))
                 # plot each line in a multilinestring
                 else:
                     for l in g:
                         x, y = l.xy
                         inds.append(i)
-                        lines.append(zip(x, y))
+                        lines.append(list(zip(x, y)))
 
             collection = LineCollection(lines, colors=ec, linewidths=lw, alpha=alpha, zorder=zorder, **kwargs)
             #lc.set_edgecolor(ec)
@@ -703,12 +703,12 @@ class basemap:
                 collection.set_array(colors)
 
         else:
-            print "plotting points..."
+            print("plotting points...")
             x = np.array([g.x for g in df.geometry])
             y = np.array([g.y for g in df.geometry])
 
             collection = self.ax.scatter(x, y, s=s, c=fc, ec=ec, lw=lw, alpha=alpha, zorder=zorder, **kwargs)
-            inds = range(len(x))
+            inds = list(range(len(x)))
 
         self.layers[collection_name] = df
         self.collections[collection_name] = collection
@@ -756,10 +756,10 @@ class basemap:
 
         df = self._load_shapefile(shp, index_field, convert_coordinates, remove_offset, simplify_patches)
 
-        print "building PatchCollection..."
+        print("building PatchCollection...")
         inds = []
         patches = []
-        for i, g in df.geometry.iteritems():
+        for i, g in df.geometry.items():
             if g.type != 'MultiPolygon':
                 inds.append(i)
                 patches.append(PolygonPatch(g))
@@ -787,7 +787,7 @@ class basemap:
         if layername is None:
             layername = os.path.split(shp)[-1].split('.')[0]
 
-        if layername not in self.layers.keys():
+        if layername not in list(self.layers.keys()):
             shpobj = fiona.open(shp)
             if 'Polygon' in shpobj.schema['geometry']:
                 self.make_patches(shp, index_field=index_field,
@@ -804,7 +804,7 @@ class basemap:
                                   cbar=cbar, clim=(), cmap=cmap, cbar_label=cbar_label,
                                   zorder=zorder)
             else:
-                print "geometry type not implemented yet"
+                print("geometry type not implemented yet")
                 return
         '''
         if axes is None:
@@ -915,7 +915,7 @@ class Normalized_cmap:
         #self.start = 0
         #self.stop = 1
         self.cm = self.shiftedColorMap(self.cmap, self.start, self.midpoint, self.stop)
-        print self.start, self.midpoint, self.stop
+        print(self.start, self.midpoint, self.stop)
 
     def normalize_cmap(self):
         """Computes start, midpoint, and end values (between 0 and 1), to make
