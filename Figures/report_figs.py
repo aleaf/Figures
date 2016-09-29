@@ -98,6 +98,7 @@ class ReportFigures(object):
         old_mathtextit = mpl.rcParams['mathtext.it']
         mpl.rcParams['mathtext.fontset'] = 'custom'
         mpl.rcParams['mathtext.it'] = 'Univers 67 Condensed:italic'
+        #mpl.rcParams['mathtext.bf'] = 'Univers 67 Condensed:italic'
 
         wrap = wrap
         title = "\n".join(textwrap.wrap(title, wrap)) #wrap title
@@ -116,8 +117,8 @@ class ReportFigures(object):
         ax.set_title(title, family=self.title_font, zorder=zorder, loc='left')
 
         # reinstate existing rcParams
-        mpl.rcParams['mathtext.fontset'] = old_fontset
-        mpl.rcParams['mathtext.it'] = old_mathtextit
+        #mpl.rcParams['mathtext.fontset'] = old_fontset
+        #mpl.rcParams['mathtext.it'] = old_mathtextit
 
     def legend(self, ax, handles, labels, **kwargs):
         '''Make a legend, following guidelines in USGS Illustration Standards, p. 14
