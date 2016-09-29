@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import numpy as np
 from matplotlib.colors import Normalize
 from matplotlib.colors import colorConverter
@@ -51,7 +51,7 @@ def make_cmap(colors, position=None, bit=False, webcolors=False):
             for i in range(len(colors)):
                 colors[i] = colorConverter.to_rgb(colors[i])
         except ValueError:
-            print "invalid html web color {}.".format(colors[i])
+            print("invalid html web color {}.".format(colors[i]))
     '''
     if bit:
         try:
@@ -87,7 +87,7 @@ def discrete_colors(array, labels=None, colormap='jet', spccolors=None):
     d = dict(list(zip(categories, newvalues)))
     array_t = np.zeros(np.shape(array))
 
-    for k, v in d.items(): array_t[array==k] = v
+    for k, v in list(d.items()): array_t[array==k] = v
     
     # update labels and categories list with new values
     for c in categories:

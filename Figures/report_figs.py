@@ -4,7 +4,6 @@ __author__ = 'aleaf'
 
 import os
 import numpy as np
-import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection, LineCollection
