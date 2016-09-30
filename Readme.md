@@ -16,7 +16,8 @@ pip install https://github.com/aleaf/Figures/archive/master.zip
 *  note: the ``xsection`` module requires flopy, but it needs some work
 
 ### Demonstration Notebooks
-[USGS Report formatting](https://github.com/aleaf/Figures/blob/master/Notebooks/Figures_demo.ipynb)
+[USGS Report formatting](https://github.com/aleaf/Figures/blob/master/Notebooks/Figures_demo.ipynb)  
+[USGS Report map](https://github.com/aleaf/Figures/blob/master/Notebooks/Maps_demo.ipynb)
 
 
 
