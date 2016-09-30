@@ -3,7 +3,7 @@ from warnings import warn
 try:
     import flopy
 except ImportError:
-    warn('Could not import flopy; xsection.py module will not work.')
+    pass
 import os
 import numpy as np
 import matplotlib.pyplot as plt

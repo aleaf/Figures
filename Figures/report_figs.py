@@ -148,21 +148,36 @@ class ReportFigures(object):
         mpl.rcParams['font.family'] = self.default_font
         return lg
 
-    def axes_numbering(self, ax, format_x=False, enforce_integers=False):
-        '''
-        Implement these requirements from USGS standards, p 16
+    def axes_numbering(self, ax, format_x=False, enforce_integers=False,
+                       x_fmt=None, y_fmt=None):
+        """
+        Implement these requirements from
+        Standards for U.S. Geological Survey Page-Size Illustrations, p 36
         * Use commas in numbers greater than 999
         * Label zero without a decimal point
         * Numbers less than 1 should consist of a zero, a decimal point, and the number
         * Numbers greater than or equal to 1 need a decimal point and trailing zero only where significant figures dictate
-        '''
+
+        Parameters
+        ----------
+        ax : matplotlib axes object
+        format_x : bool
+            Option to format the x-axis (for figures where x-axis is dates or categories, etc.)
+        enforce_integers : bool
+            Force tick intervals to be at even integers
+        x_fmt : format string
+            Optional argument to explicitly specify desired axis formatting.
+            (e.g. {:,.2f} for two decimal places with a thousands sep.)
+        y_fmt : format string
+            Optional argument to explicitly specify desired axis formatting.
+        """
 
         # enforce minimum value of zero on y axis if data is positive
         if self.ymin0 and ax.get_ylim()[0] < 0:
             ax.set_ylim(0, ax.get_ylim()[1])
 
-        # so clunky, but this appears to be the only way to do it
-        def number_formatting(axis_limits, enforce_integers):
+        # default number formatting for various axis limits
+        def get_format(axis_limits, enforce_integers):
             if -10 > axis_limits[0] or axis_limits[1] > 10 or enforce_integers:
                 fmt = '{:,.0f}'
             elif -10 <= axis_limits[0] < -1 or 1 < axis_limits[1] <= 10:
@@ -171,50 +186,63 @@ class ReportFigures(object):
                 fmt = '{:,.2f}'
             else:
                 fmt = '{:,.2e}'
-                
+            return fmt
+
+        # formatting function for the ticker
+        def number_formatting(axis_limits, enforce_integers, fmt=None):
+            if fmt is None:
+                fmt = get_format(axis_limits, enforce_integers)
             def format_axis(y, pos):
                 y = fmt.format(y)
                 return y
             return format_axis
 
-        format_axis = number_formatting(ax.get_ylim(), enforce_integers) 
+        # correct for edge cases of upper ylim == 1, 10
+        # and fix zero to have no decimal places
+        def fix_decimal(ticks):
+            # ticks are a list of strings
+            if makefloat(ticks[-1]) == 10:
+                ticks[-1] = '10'
+            if makefloat(ticks[-1]) == 1:
+                ticks[-1] = '1.0'
+            for i, v in enumerate(ticks):
+                if makefloat(v) == 0:
+                    ticks[i] = '0'
+            return ticks
+
+        # strip unicode for minus sign and thousands separator
+        def makefloat(text):
+            txt = text.replace('\u2212', '-')
+            txt = txt.replace(',', '')
+            return float(txt)
+
+        # apply the number formats
+        format_axis = number_formatting(ax.get_ylim(), enforce_integers, fmt=y_fmt)
         ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
 
+        # option to format x (may not want to mess with x if it has dates or other categories)
         if format_x:
-            format_axis = number_formatting(ax.get_xlim(), enforce_integers) 
+            format_axis = number_formatting(ax.get_xlim(), enforce_integers, fmt=x_fmt)
             ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
-        
+
+        # enforce integer increments
         if enforce_integers:
             ax.get_yaxis().set_major_locator(mpl.ticker.MaxNLocator(integer=True))
             if format_x:
                 ax.get_xaxis().set_major_locator(mpl.ticker.MaxNLocator(integer=True))
             
-        # correct for edge cases of upper ylim == 1, 10
-        # and fix zero to have no decimal places
-        def fix_decimal(ticks):
-            # ticks are a list of strings
-            if float(ticks[-1]) == 10:
-                ticks[-1] = '10'
-            if float(ticks[-1]) == 1:
-                ticks[-1] = '1.0'
-            for i, v in enumerate(ticks):
-                if float(v) == 0:
-                    ticks[i] = '0'
-            return ticks
+        # fix the min/max values
+        # (don't do this if a format is explicitly specified)
+        if format_x:
+            if x_fmt is None:
+                x_fmt = get_format(ax.get_xlim(), enforce_integers)
+                newxlabels = fix_decimal([x_fmt.format(l) for l in ax.get_xticks()])
+                ax.set_xticklabels(newxlabels)
 
-        try:
-            [float(l._text.replace('\u2212', '-')) for l in ax.get_xticklabels()]
-            newxlabels = fix_decimal([fmt.format(float(l._text.replace('\u2212', '-'))) for l in ax.get_xticklabels()])
-            ax.set_xticklabels(newxlabels)
-        except:
-            pass
-
-        try:
-            [float(l._text.replace('\u2212', '-')) for l in ax.get_yticklabels()]
-            newylabels = fix_decimal([fmt.format(float(l._text.replace('\u2212', '-'))) for l in ax.get_yticklabels()])
+        if y_fmt is None:
+            y_fmt = get_format(ax.get_ylim(), enforce_integers)
+            newylabels = fix_decimal([y_fmt.format(l) for l in ax.get_yticks()])
             ax.set_yticklabels(newylabels)
-        except:
-            pass
 
     def basemap_credits(self, ax, text, wrap=50, y_offset=-0.01):
         """Add basemap credits per the Illustration Standards Guide p27
@@ -227,11 +255,6 @@ class ReportFigures(object):
     def set_style(self, mpl=mpl, style='default', width='double', height='default'):
         """
         Set dimmensions of figures to standard report sizes
-
-        Not quite sure yet about the cleanest way to implement multiple customizations of the base settings (styles)
-        Seaborn's methodology is somewhat complicated, but may be the way to go for multiple figure styles
-        (and it also provides the option of viewing the current style settings with the axes_style() command)
-
 
         Parameters
         ----------
