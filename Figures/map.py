@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection, LineCollection
 from .report_figs import ReportFigures, Normalized_cmap
+from .reference import getproj4
 
 def errmsg(package):
     msg = 'This module needs basemap. If you are using Anaconda, '.format(package)
@@ -16,7 +17,7 @@ except:
     errmsg('basemap')
 try:
     import fiona
-    from fiona.crs import to_string, from_epsg
+    from fiona.crs import to_string, from_epsg, from_string
 except:
     errmsg('fiona')
 try:
@@ -39,7 +40,8 @@ class basemap:
 
     figsize = ReportFigures.doublecolumn_sizeT
 
-    projection = 'tmerc'
+    proj42basemap = {'utm': 'tmerc'}
+
     radii = {'NAD83': (6378137.00, 6356752.314245179),
              'NAD27': (6378206.4, 6356583.8)}
 
@@ -58,14 +60,20 @@ class basemap:
                     'color': '0.85',
                     'size': 8}
 
+    ticks_kw = {'linewidths': 0.5,
+                'c': 'k',
+                'zorder': 100}
     #resolution of boundary database to use.
     # Can be c (crude), l (low), i (intermediate), h (high), f (full) or None
-    Basemap_kwargs = {'resolution': 'l'}
+    Basemap_kwargs = {'resolution': 'l',
+                      'lat_0': 0,
+                      'k_0': 0.99960000}
 
     scalebar_params = {'fontsize': 7, 'lineweight': 0.5, 'nticks': 3}
 
 
-    def __init__(self, extent, ax=None, proj4=None, epsg=None, datum='NAD27', projection_shapefile=None,
+    def __init__(self, extent, ax=None,
+                 crs=None, proj4=None, epsg=None, datum='NAD27', projection_shapefile=None,
                  tick_interval=0.2,
                  subplots=(1, 1), figsize='default', wspace=0.02, hspace=0.1,
                  parallels='default', meridians='default', parallels_kw={}, meridians_kw={},
@@ -78,7 +86,8 @@ class basemap:
         if ax is None:
             # sharex and sharey arguments do not work with basemap!
             self.fig, self.axes = plt.subplots(*subplots, figsize=self.figsize)
-
+            if sum(subplots) == 2:
+                self.axes = np.array([self.axes])
         elif isinstance(ax, np.ndarray):
             self.axes = ax
             if len(np.shape(ax)) == 1:
@@ -95,16 +104,17 @@ class basemap:
         self.extent_proj = extent
         self.proj4 = proj4
         self.epsg = epsg
+        self.crs = crs
         self.projection_shapefile = projection_shapefile
         self.datum = datum
 
         # update default basemap setting with supplied keyword args
-        self.Basemap_kwargs['rsphere'] = self.radii[self.datum]
         self.Basemap_kwargs.update(kwargs)
 
         self._set_proj4() # establish a proj4 string for basemap projection regardless of input
+        self._set_crs() # setup dictionary mapping of proj 4 string
+        self._set_Basemap_kwargs()
 
-        self._convert_map_extent() # convert supplied map extent to lat/lon
 
         # decide with subplot axes edges to label (sharex/sharey don't work with basemap!)
         self.subplot_ticklabels()
@@ -172,19 +182,59 @@ class basemap:
                                     'urcrnrlat': self.urcrnrlat})
 
     def _read_shapefile_projection(self, shapefile):
-
+        """sets the proj4 string from a shapefile"""
         crs = fiona.open(shapefile).crs
+        init = crs.get('init', '')
+        if 'epsg' in init:
+            self.epsg = int(init.strip('epsg:'))
 
-        self.datum = str(crs.get('datum', self.datum))
-        self.Basemap_kwargs['projection'] = str(crs.get('proj', None))
+            if self.epsg is not None:
+                self.proj4 = getproj4(self.epsg)
+        else:
+            self.proj4 = to_string(crs)
 
-        for latlon in ['lat_0', 'lat_1', 'lat_2', 'lon_0']:
-            self.Basemap_kwargs[latlon] = crs.get(latlon, None)
 
+    def _set_proj4(self):
+
+        # establish a proj4 string for basemap projection regardless of input
+        if self.epsg is not None:
+            self.proj4 = get_proj4(self.epsg)
+
+        elif self.projection_shapefile is not None:
+            self._read_shapefile_projection(self.projection_shapefile)
+
+    def _set_crs(self):
+        if self.crs is None and self.proj4 is not None:
+            self.crs = from_string(self.proj4)
+
+    def _set_Basemap_kwargs(self, use_epsg=False):
+        """Sets the keyword arguments to Basemap from a crs mapping.
+
+        Parameters
+        ----------
+        use_epsg : bool
+            Use EPSG code for setting up basemap in lieu of all other parameters.
+            (not recommended; utm projections are not well supported)
+        """
+        if use_epsg and self.epsg is not None:
+            self.Basemap_kwargs = {'epsg': self.epsg}
+        elif self.crs is not None:
+            self.datum = str(self.crs.get('datum', self.datum))
+            self.Basemap_kwargs['projection'] = self.projection
+            self.Basemap_kwargs['ellps'] = self.crs.get('ellps', None)
+            for latlon in ['lat_0', 'lat_1', 'lat_2', 'lon_0']:
+                self.Basemap_kwargs[latlon] = self.crs.get(latlon,
+                                                           self.Basemap_kwargs.get(latlon, None))
+            # this is kind of ugly and needs some work for other coordinate systems
+            if self.Basemap_kwargs['lon_0'] is None:
+                self.Basemap_kwargs['lon_0'] = self._get_utm_lon_0(self.crs.get('zone', 15))
+
+        self.Basemap_kwargs['rsphere'] = self.radii[self.datum]
+        self._convert_map_extent() # convert supplied map extent to lat/lon; adds corners to Basemap kwargs
         '''
         {u'datum': u'NAD83',
          u'lat_0': 23,
-         u'lat_1': 29.5,
+         u'lat_1': 29.5
          u'lat_2': 45.5,
          u'lon_0': -96,
          u'no_defs': True,
@@ -193,16 +243,17 @@ class basemap:
          u'x_0': 0,
          u'y_0': 0}
          '''
+    @property
+    def projection(self):
+        projection = self.proj42basemap.get(self.crs.get('proj', None), None)
+        if projection is None:
+            return 'tmerc'
+        return projection
 
-    def _set_proj4(self):
+    def _get_utm_lon_0(self, zone=15):
+        """get the longitude of origin for a given utm zone"""
+        return -87. - (zone - 15) * 6
 
-        # establish a proj4 string for basemap projection regardless of input
-        if self.epsg is not None:
-            self.proj4 = to_string(from_epsg(self.epsg))
-
-        if self.projection_shapefile is not None:
-            self._read_shapefile_projection(self.projection_shapefile)
-            self.proj4 = get_proj4(self.projection_shapefile)
 
     def add_graticule_ticks(self, m, x, y):
 
@@ -216,10 +267,10 @@ class basemap:
         xbpts = [x[lat][0][0].get_data()[0][np.argmin(abs(x[lat][0][0].get_data()[1] - m.urcrnry))] for lat in list(x.keys())]
 
         # now plot the ticks as a scatter
-        m.scatter(len(ylpts)*[0], ylpts, 100, c='k', marker='_', linewidths=1, zorder=100)
-        m.scatter(len(yrpts)*[m.urcrnrx], yrpts, 100, c='k', marker='_', linewidths=1, zorder=100)
-        m.scatter(xtpts, len(xtpts)*[0], 100, c='k', marker='|', linewidths=1, zorder=100)
-        m.scatter(xbpts, len(xbpts)*[m.urcrnry], 100, c='k', marker='|', linewidths=1, zorder=100)
+        m.scatter(len(ylpts)*[0], ylpts, 100, marker='_', **self.ticks_kw)
+        m.scatter(len(yrpts)*[m.urcrnrx], yrpts, 100, marker='_', **self.ticks_kw)
+        m.scatter(xtpts, len(xtpts)*[0], 100, marker='|', **self.ticks_kw)
+        m.scatter(xbpts, len(xbpts)*[m.urcrnry], 100, marker='|', **self.ticks_kw)
 
     def _get_xy_lables(self, drawlabels):
         drawlabels = np.array(drawlabels)
