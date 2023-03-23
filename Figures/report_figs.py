@@ -69,9 +69,9 @@ class ReportFigures(object):
 
         pass
 
-    def title(self, ax, title, zorder=200, wrap=50,
+    def title(self, ax, title, zorder=200, wrap=None,
                      subplot_prefix='',
-                     capitalize=True):
+                     capitalize=True, **kwargs):
 
         # save the defaults before setting
         old_fontset = mpl.rcParams['mathtext.fontset']
@@ -80,8 +80,8 @@ class ReportFigures(object):
         mpl.rcParams['mathtext.it'] = 'Univers 67 Condensed:italic'
         #mpl.rcParams['mathtext.bf'] = 'Univers 67 Condensed:italic'
 
-        wrap = wrap
-        title = "\n".join(textwrap.wrap(title, wrap)) #wrap title
+        if wrap is not None:
+            title = "\n".join(textwrap.wrap(title, wrap)) #wrap title
         if capitalize:
             title = title.capitalize()
         '''
@@ -91,11 +91,12 @@ class ReportFigures(object):
                 transform=ax.transAxes, zorder=zorder)
         '''
         if len(subplot_prefix) > 0:
-            title = '$\it{}$. '.format(subplot_prefix) + title
+            title = f'$\it{{{subplot_prefix}}}$. ' + title
         # with Univers 47 Condensed as the font.family, changing the weight to 'bold' doesn't work
         # manually specify a different family for the title
-        ax.set_title(title, family=self.title_font, zorder=zorder, loc='left')
-
+        ax.set_title(title, family=self.title_font, zorder=zorder, loc='left', math_fontfamily='custom', 
+                     **kwargs)
+        
         # reinstate existing rcParams
         #mpl.rcParams['mathtext.fontset'] = old_fontset
         #mpl.rcParams['mathtext.it'] = old_mathtextit
@@ -160,13 +161,13 @@ class ReportFigures(object):
         # default number formatting for various axis limits
         def get_format(axis_limits, enforce_integers):
             if -10 > axis_limits[0] or axis_limits[1] > 10 or enforce_integers:
-                fmt = '{:,.0f}'
+                fmt = '{x:,.0f}'
             elif -10 <= axis_limits[0] < -1 or 1 < axis_limits[1] <= 10:
-                fmt = '{:,.1f}'
+                fmt = '{x:,.1f}'
             elif -1 <= axis_limits[0] < -.1 or .1 < axis_limits[1] <= 1:
-                fmt = '{:,.2f}'
+                fmt = '{x:,.2f}'
             else:
-                fmt = '{:,.2e}'
+                fmt = '{x:,.2e}'
             return fmt
 
         # formatting function for the ticker
@@ -198,13 +199,25 @@ class ReportFigures(object):
             return float(txt)
 
         # apply the number formats
-        format_axis = number_formatting(ax.get_ylim(), enforce_integers, fmt=y_fmt)
-        ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
+        #format_axis = number_formatting(ax.get_ylim(), enforce_integers, fmt=y_fmt)
+        if y_fmt is None:
+            y_fmt = get_format(ax.get_ylim(), enforce_integers)
+        else:
+            # add the variable to the string formatter if it wasn't included
+            y_fmt = y_fmt.replace('{:', '{x:')
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter(y_fmt))
+        #ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
 
         # option to format x (may not want to mess with x if it has dates or other categories)
         if format_x:
-            format_axis = number_formatting(ax.get_xlim(), enforce_integers, fmt=x_fmt)
-            ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
+            #format_axis = number_formatting(ax.get_xlim(), enforce_integers, fmt=x_fmt)
+            if x_fmt is None:
+                x_fmt = get_format(ax.get_xlim(), enforce_integers)
+            else:
+                # add the variable to the string formatter if it wasn't included
+                x_fmt = x_fmt.replace('{:', '{x:')
+            ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter(x_fmt))
+            #ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(format_axis))
 
         # enforce integer increments
         if enforce_integers:
