@@ -71,7 +71,7 @@ class ReportFigures(object):
 
     def title(self, ax, title, zorder=200, wrap=None,
                      subplot_prefix='',
-                     capitalize=True, **kwargs):
+                     capitalize=False, **kwargs):
 
         # save the defaults before setting
         old_fontset = mpl.rcParams['mathtext.fontset']
